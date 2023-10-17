@@ -10,23 +10,24 @@ import {
   Query,
 } from '@nestjs/common';
 import { query } from 'express';
+import { LatihanService } from './latihan.service';
 
 @Controller('latihan')
 export class LatihanController {
+  constructor(private latihanService: LatihanService) {}
+
   @Get()
-  findAll(@Query() query:any) {
+  findAll(@Query() query: any) {
     return {
-        query,
-    }
+      query,
+    };
   }
 
   @Post()
   create(@Body() payload: any) {
     console.log(payload);
     // return 'latihan menggunakan method POST';
-    return {
-      payload: payload,
-    };
+    return this.latihanService.hello();
   }
   @Post('create')
   create2(@Body('name') name: string, @Body('sekolah') sekolah: string) {
@@ -54,13 +55,13 @@ export class LatihanController {
 
   @Patch()
   patch() {
-    return 'latihan menggunakan method PATCH';
+    return this.latihanService.faiz();
   }
 
   @Delete('delete/:id')
-  delete(@Param('id') id:string) {
+  delete(@Param('id') id: string) {
     return {
-        id,
-    }
+      id,
+    };
   }
 }
