@@ -1,26 +1,36 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException
+  
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './auth.entity';
-import { Repository } from 'typeorm';
+import { MongoNetworkTimeoutError, Repository } from 'typeorm';
 import BaseResponse from 'src/utils/response/base.response';
-import { LoginDto, RegisterDto } from './auth.dto';
+import { LoginDto, RegisterDto, ResetPasswordDto } from './auth.dto';
 import { ResponseSuccess } from 'src/interface';
-import { compare, hash } from 'bcrypt';
 import { allowedNodeEnvironmentFlags } from 'process';
 import { JwtService } from '@nestjs/jwt';
 import { access } from 'fs';
 import { jwt_config } from 'src/config/jwt.congif';
-
+import { compare, hash } from 'bcrypt';
+import { randomBytes } from 'crypto';
+import { MailService } from '../mail/mail.service';
+import { ResetPassword } from '../mail/reset_password.entity';
 @Injectable()
 export class AuthService extends BaseResponse {
   constructor(
     @InjectRepository(User) private readonly authRepository: Repository<User>,
-    private jwtService : JwtService
+    @InjectRepository(ResetPassword) private readonly resetPasswordRepo : Repository<ResetPassword> ,
+    private jwtService: JwtService,
+    private mailService : MailService,
   ) {
     super();
   }
 
-  generateJWT(payload : jwtPayload, expiresIn : string | number , token : string) {
+ private generateJWT(payload: jwtPayload, expiresIn: string | number, token: string) {
     return this.jwtService.sign(payload, {
       secret: token,
       expiresIn: expiresIn,
@@ -67,13 +77,14 @@ export class AuthService extends BaseResponse {
     const checkPassword = await compare(
       payload.password,
       checkUserExists.password,
-    ); // compare password yang dikirim dengan password yang ada di tabel
+    ); 
+
     if (checkPassword) {
-      const jwtPayload : jwtPayload = {
-        id : checkUserExists.id,
-        nama : checkUserExists.nama,
-        email: checkUserExists.email
-      }
+      const jwtPayload: jwtPayload = {
+        id: checkUserExists.id,
+        nama: checkUserExists.nama,
+        email: checkUserExists.email,
+      };
 
       const access_token = await this.generateJWT(
         jwtPayload,
@@ -89,7 +100,7 @@ export class AuthService extends BaseResponse {
         refresh_token: refresh_token,
         id: checkUserExists.id,
       });
-      return this._success('Login Success',  {
+      return this._success('Login Success', {
         ...checkUserExists,
         access_token: access_token,
         refresh_token: refresh_token,
@@ -110,6 +121,119 @@ export class AuthService extends BaseResponse {
 
     return this._success('OK', user);
   }
- 
+  async refreshToken(id: number, token: string): Promise<ResponseSuccess> {
+    const checkUserExists = await this.authRepository.findOne({
+      where: {
+        id,
+        refresh_token: token,
+      },
+      select: {
+        id: true,
+        nama: true,
+        email: true,
+        password: true,
+        refresh_token: true,
+      },
+    });
+
+    if (checkUserExists === null) {
+      throw new UnauthorizedException();
+    }
+
+    const jwtPayload: jwtPayload = {
+      id: checkUserExists.id,
+      nama: checkUserExists.nama,
+      email: checkUserExists.email,
+    };
+
+    const access_token = await this.generateJWT(
+      jwtPayload,
+      '1d',
+      jwt_config.access_token_secret,
+    );
+
+    const refresh_token = await this.generateJWT(
+      jwtPayload,
+      '7d',
+      jwt_config.refresh_token_secret,
+    );
+
+    await this.authRepository.save({
+      refresh_token: refresh_token,
+      id: checkUserExists.id,
+    });
+
+    return this._success('Success', {
+      ...checkUserExists,
+      access_token: access_token,
+      refresh_token: refresh_token,
+    });
+  }
+  async forgotPassword(email: string): Promise<ResponseSuccess> {
+    const user = await this.authRepository.findOne({
+      where: {
+        email: email,
+      },
+    });
+
+    if (!user) {
+      throw new HttpException(
+        'Email tidak ditemukan',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
+    const token = randomBytes(32).toString('hex'); // membuat token
+    const link = `http://localhost:3310/auth/reset-password/${user.id}/${token}`; //membuat link untuk reset password
+    await this.mailService.sendForgotPassword({
+      email: email,
+      name: user.nama,
+      link: link,
+    });
+
+    const payload = {
+      user: {
+        id: user.id,
+      },
+      token: token,
+    };
+
+    await this.resetPasswordRepo.save(payload); // menyimpan token dan id ke tabel reset password
+
+    return this._success('Silahkan Cek Email');
+  }
+  async resetPassword(
+    user_id: number,
+    token: string,
+    payload: ResetPasswordDto,
+  ): Promise<ResponseSuccess> {
+    const userToken = await this.resetPasswordRepo.findOne({    //cek apakah user_id dan token yang sah pada tabel reset password
+      where: {
+        token: token,
+        user: {
+          id: user_id,
+        },
+      },
+    });
+
+    if (!userToken) {
+      throw new HttpException(
+        'Token tidak valid',
+        HttpStatus.UNPROCESSABLE_ENTITY,  // jika tidak sah , berikan pesan token tidak valid
+      );
+    }
+
+    payload.new_password = await hash(payload.new_password, 12); //hash password
+    await this.authRepository.save({  // ubah password lama dengan password baru
+      password: payload.new_password,
+      id: user_id,
+    });
+    await this.resetPasswordRepo.delete({ // hapus semua token pada tabel reset password yang mempunyai user_id yang dikirim, agar tidak bisa digunakan kembali
+      user: {
+        id: user_id,
+      },
+    });
+
+    return this._success('Reset Passwod Berhasil, Silahkan login ulang');
+  }
 
 }
