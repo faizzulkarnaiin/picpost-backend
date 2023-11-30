@@ -31,25 +31,7 @@ export class BookService extends BaseResponse {
     super();
   }
  
-  private books: {
-    id: number;
-    title: string;
-    author: string;
-    year: number;
-  }[] = [
-    {
-      id: 1,
-      title: 'HTML CSS',
-      author: 'ihsanabuhanifah',
-      year: 2023,
-    },
-    {
-      id: 2,
-      title: 'mtk',
-      author: 'ihsanabuhanifah',
-      year: 2023,
-    },
-  ];
+  
 
   async getAllBooks(findBookDto: FindBookDto): Promise<ResponsePagination> {
     const { page, pageSize, title, author, from_year, to_year, limit } =
@@ -136,15 +118,7 @@ export class BookService extends BaseResponse {
     return this._success(`berhasil menghapus buku dengan id ${id}`, book)
   }
 
-  private findBookById(id: number) {
-    // mencari index dari buku berdasarkan id
-    const bookIndex = this.books.findIndex((book) => book.id === id);
-
-    if (bookIndex === -1) {
-      throw new NotFoundException(`Buku dengan ${id} tidak ditemukan`);
-    }
-    return bookIndex;
-  }
+  
 
   async getDetail(id: number): Promise<ResponseSuccess> {
     const book = await this.bookRepository.findOne({

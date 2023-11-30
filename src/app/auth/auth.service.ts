@@ -2,8 +2,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
-  UnauthorizedException
-  
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './auth.entity';
@@ -23,14 +22,19 @@ import { ResetPassword } from '../mail/reset_password.entity';
 export class AuthService extends BaseResponse {
   constructor(
     @InjectRepository(User) private readonly authRepository: Repository<User>,
-    @InjectRepository(ResetPassword) private readonly resetPasswordRepo : Repository<ResetPassword> ,
+    @InjectRepository(ResetPassword)
+    private readonly resetPasswordRepo: Repository<ResetPassword>,
     private jwtService: JwtService,
-    private mailService : MailService,
+    private mailService: MailService,
   ) {
     super();
   }
 
- private generateJWT(payload: jwtPayload, expiresIn: string | number, token: string) {
+  private generateJWT(
+    payload: jwtPayload,
+    expiresIn: string | number,
+    token: string,
+  ) {
     return this.jwtService.sign(payload, {
       secret: token,
       expiresIn: expiresIn,
@@ -77,7 +81,7 @@ export class AuthService extends BaseResponse {
     const checkPassword = await compare(
       payload.password,
       checkUserExists.password,
-    ); 
+    );
 
     if (checkPassword) {
       const jwtPayload: jwtPayload = {
@@ -206,7 +210,8 @@ export class AuthService extends BaseResponse {
     token: string,
     payload: ResetPasswordDto,
   ): Promise<ResponseSuccess> {
-    const userToken = await this.resetPasswordRepo.findOne({    //cek apakah user_id dan token yang sah pada tabel reset password
+    const userToken = await this.resetPasswordRepo.findOne({
+      //cek apakah user_id dan token yang sah pada tabel reset password
       where: {
         token: token,
         user: {
@@ -218,16 +223,18 @@ export class AuthService extends BaseResponse {
     if (!userToken) {
       throw new HttpException(
         'Token tidak valid',
-        HttpStatus.UNPROCESSABLE_ENTITY,  // jika tidak sah , berikan pesan token tidak valid
+        HttpStatus.UNPROCESSABLE_ENTITY, // jika tidak sah , berikan pesan token tidak valid
       );
     }
 
     payload.new_password = await hash(payload.new_password, 12); //hash password
-    await this.authRepository.save({  // ubah password lama dengan password baru
+    await this.authRepository.save({
+      // ubah password lama dengan password baru
       password: payload.new_password,
       id: user_id,
     });
-    await this.resetPasswordRepo.delete({ // hapus semua token pada tabel reset password yang mempunyai user_id yang dikirim, agar tidak bisa digunakan kembali
+    await this.resetPasswordRepo.delete({
+      // hapus semua token pada tabel reset password yang mempunyai user_id yang dikirim, agar tidak bisa digunakan kembali
       user: {
         id: user_id,
       },
@@ -235,5 +242,4 @@ export class AuthService extends BaseResponse {
 
     return this._success('Reset Passwod Berhasil, Silahkan login ulang');
   }
-
 }

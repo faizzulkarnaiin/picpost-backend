@@ -56,15 +56,5 @@ export class BookController {
 
 
 
-  array = [
-    {
-      id: 1,
-    },
-    {
-      id: 2,
-    },
-    {
-      id: 3,
-    },
-  ];
+  
 }
