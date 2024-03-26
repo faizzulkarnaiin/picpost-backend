@@ -18,6 +18,9 @@ import {
   deleteKategoriArrayDto,
   findAllKategori,
 } from './kategori.dto';
+import { InjectCreatedBy } from 'src/utils/decorator/createdBy.decorator';
+import { InjectUpdatedBy } from 'src/utils/decorator/updatedBy.decorator';
+import { InjectCreatedByBulk } from 'src/utils/decorator/createdByBulk.decorator';
 
 @UseGuards(JwtGuard)
 @Controller('kategori')
@@ -25,7 +28,7 @@ export class KategoriController {
   constructor(private kategoriService: KategoriService) {}
 
   @Post('create')
-  async create(@Body() payload: CreateKategoriDto) {
+  async create(@InjectCreatedBy() payload: CreateKategoriDto) {
     return this.kategoriService.create(payload);
   }
 
@@ -33,20 +36,24 @@ export class KategoriController {
   async getAllCategory(@Pagination() query: findAllKategori) {
     return this.kategoriService.getAllCategory(query);
   }
+  @Get('user/list')
+  async getUserCategory() {
+    return this.kategoriService.getUserCategory();
+  }
   @Put('update/:id')
-  updateBook(@Param('id') id: string, @Body() payload: UpdateKategoriDto) {
+  updateKategori(@Param('id') id: string, @InjectUpdatedBy() payload: UpdateKategoriDto) {
     return this.kategoriService.update(Number(id), payload);
   }
   @Delete('delete/:id')
-  deleteBook(@Param('id') id: string) {
+  deleteKategori(@Param('id') id: string) {
     return this.kategoriService.deleteKategori(+id);
   }
   @Get('detail/:id')
-  findOneBook(@Param('id') id: string) {
+  findOneKategori(@Param('id') id: string) {
     return this.kategoriService.getDetail(Number(id));
   }
   @Post('create/bulk')
-  createBulk(@Body() payload: CreateKategoriArrayDto) {
+  createBulk(@InjectCreatedByBulk() payload: CreateKategoriArrayDto) {
     return this.kategoriService.bulkCreate(payload);
   }
   @Post('delete/bulk')

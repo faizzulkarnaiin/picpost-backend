@@ -4,9 +4,10 @@ import { KategoriService } from './kategori.service';
 import { typeOrmConfig } from 'src/config/typeorm.config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Kategori } from './kategori.entity';
+import { User } from '../auth/auth.entity';
 
 @Module({
-  imports : [TypeOrmModule.forFeature([Kategori])],
+  imports : [TypeOrmModule.forFeature([Kategori, User])],
   controllers: [KategoriController],
   providers: [KategoriService]
 })

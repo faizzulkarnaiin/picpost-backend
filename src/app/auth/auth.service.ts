@@ -1,14 +1,24 @@
 import {
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './auth.entity';
 import { MongoNetworkTimeoutError, Repository } from 'typeorm';
 import BaseResponse from 'src/utils/response/base.response';
-import { LoginDto, RegisterDto, ResetPasswordDto } from './auth.dto';
+import {
+  GithubDto,
+  GoogleDto,
+  LoginDto,
+  RegisterDto,
+  ResetPasswordDto,
+  UpdateUserDto,
+  UserDto,
+} from './auth.dto';
 import { ResponseSuccess } from 'src/interface';
 import { allowedNodeEnvironmentFlags } from 'process';
 import { JwtService } from '@nestjs/jwt';
@@ -18,6 +28,8 @@ import { compare, hash } from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { ResetPassword } from '../mail/reset_password.entity';
+import { constants } from 'buffer';
+import { REQUEST } from '@nestjs/core';
 @Injectable()
 export class AuthService extends BaseResponse {
   constructor(
@@ -26,12 +38,33 @@ export class AuthService extends BaseResponse {
     private readonly resetPasswordRepo: Repository<ResetPassword>,
     private jwtService: JwtService,
     private mailService: MailService,
+    @Inject(REQUEST) private req: any,
   ) {
     super();
   }
 
   private generateJWT(
     payload: jwtPayload,
+    expiresIn: string | number,
+    token: string,
+  ) {
+    return this.jwtService.sign(payload, {
+      secret: token,
+      expiresIn: expiresIn,
+    });
+  }
+  private generateGithubJWT(
+    payload: githubJwtPayload,
+    expiresIn: string | number,
+    token: string,
+  ) {
+    return this.jwtService.sign(payload, {
+      secret: token,
+      expiresIn: expiresIn,
+    });
+  }
+  private generateGoogleJWT(
+    payload: googleJwtPayload,
     expiresIn: string | number,
     token: string,
   ) {
@@ -61,6 +94,7 @@ export class AuthService extends BaseResponse {
     const checkUserExists = await this.authRepository.findOne({
       where: {
         email: payload.email,
+        provider: 'credentials',
       },
       select: {
         id: true,
@@ -108,6 +142,7 @@ export class AuthService extends BaseResponse {
         ...checkUserExists,
         access_token: access_token,
         refresh_token: refresh_token,
+        role: 'admin',
       });
     } else {
       throw new HttpException(
@@ -116,6 +151,132 @@ export class AuthService extends BaseResponse {
       );
     }
   }
+  async loginWithGithub(payload: GithubDto): Promise<ResponseSuccess> {
+    try {
+      console.log(payload);
+
+      let user = await this.authRepository.findOne({
+        where: {
+          client_id: payload.client_id,
+          provider: 'github',
+        },
+      });
+
+      // Buat payload JWT
+      const githubJwtPayload: githubJwtPayload = {
+        id: user ? user.id : null,
+        nama: payload.nama,
+        email: payload.email,
+        client_id: payload.client_id,
+      };
+
+      // Buat token akses
+      const access_token = await this.generateGithubJWT(
+        githubJwtPayload,
+        '1d',
+        jwt_config.access_token_secret,
+      );
+
+      let refresh_token;
+      if (user) {
+        // Jika pengguna sudah ada, buat refresh token baru
+        refresh_token = await this.generateGithubJWT(
+          githubJwtPayload,
+          '7d',
+          jwt_config.refresh_token_secret,
+        );
+        // Simpan refresh token ke dalam basis data
+        user.refresh_token = refresh_token;
+        await this.authRepository.save(user);
+      } else {
+        // Jika pengguna belum ada, simpan pengguna baru dan buat refresh token baru
+        user = await this.authRepository.save(payload);
+        refresh_token = await this.generateGithubJWT(
+          githubJwtPayload,
+          '7d',
+          jwt_config.refresh_token_secret,
+        );
+        // Simpan refresh token ke dalam basis data
+        user.refresh_token = refresh_token;
+        await this.authRepository.save(user);
+      }
+
+      // Kembalikan respons sukses dengan token
+      return this._success('Login Success', {
+        ...payload,
+        access_token: access_token,
+        refresh_token: refresh_token,
+        role: 'siswa',
+      });
+    } catch (error) {
+      // Tangani kesalahan
+      throw new HttpException(
+        'Gagal login dengan github',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async loginWithGoogle(payload: GoogleDto): Promise<ResponseSuccess> {
+    try {
+      console.log(payload);
+
+      let user = await this.authRepository.findOne({
+        where: {
+          client_id: payload.client_id,
+          provider: 'google',
+        },
+      });
+
+      const googleJwtPayload: googleJwtPayload = {
+        id: user ? user.id : null,
+        nama: payload.nama,
+        email: payload.email,
+        client_id: payload.client_id,
+      };
+
+      // Buat token akses
+      const access_token = await this.generateGoogleJWT(
+        googleJwtPayload,
+        '1d',
+        jwt_config.access_token_secret,
+      );
+
+      let refresh_token;
+      if (user) {
+        refresh_token = await this.generateGoogleJWT(
+          googleJwtPayload,
+          '7d',
+          jwt_config.refresh_token_secret,
+        );
+        user.refresh_token = refresh_token;
+        await this.authRepository.save(user);
+      } else {
+        user = await this.authRepository.save(payload);
+        refresh_token = await this.generateGoogleJWT(
+          googleJwtPayload,
+          '7d',
+          jwt_config.refresh_token_secret,
+        );
+        user.refresh_token = refresh_token;
+        await this.authRepository.save(user);
+      }
+
+      return this._success('Login Success', {
+        ...payload,
+        access_token: access_token,
+        refresh_token: refresh_token,
+        role: 'siswa',
+      });
+    } catch (error) {
+      // Tangani kesalahan
+      throw new HttpException(
+        'Gagal login dengan Google',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async myProfile(id: number): Promise<ResponseSuccess> {
     const user = await this.authRepository.findOne({
       where: {
@@ -124,6 +285,28 @@ export class AuthService extends BaseResponse {
     });
 
     return this._success('OK', user);
+  }
+  async updateProfile(id: number, payload: UpdateUserDto): Promise<ResponseSuccess> {
+    const user = await this.authRepository.findOne({
+      where: {
+        id: id,
+      },
+    });
+    if (user == null) {
+      throw new NotFoundException(`User dengan id ${id} tidak ditemukan`);
+    }
+    // const updateUser = await this.authRepository.save({
+    //   ...payload,
+    //   id,
+
+    // });
+    const update = await this.authRepository.update(
+      { id: id },
+      {
+        ...payload,
+      },
+    );
+    return this._success('OK', update);
   }
   async refreshToken(id: number, token: string): Promise<ResponseSuccess> {
     const checkUserExists = await this.authRepository.findOne({
@@ -188,10 +371,12 @@ export class AuthService extends BaseResponse {
     }
     const token = randomBytes(32).toString('hex'); // membuat token
     const link = `http://localhost:3310/auth/reset-password/${user.id}/${token}`; //membuat link untuk reset password
+    const feLink = `http://localhost:3010/auth/${user.id}/${token}/reset-password`;
     await this.mailService.sendForgotPassword({
       email: email,
       name: user.nama,
       link: link,
+      feLink: feLink,
     });
 
     const payload = {

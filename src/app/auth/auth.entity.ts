@@ -6,6 +6,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { ResetPassword } from '../mail/reset_password.entity';
+import { Kategori } from '../kategori/kategori.entity';
 
 @Entity()
 export class User extends BaseEntity {
@@ -18,12 +19,15 @@ export class User extends BaseEntity {
   @Column({ nullable: false })
   nama: string;
 
-  @Column({ unique: true, nullable: false })
+  @Column({ nullable: false })
   email: string;
 
   @Column({ nullable: true })
   password: string;
-
+  @Column({ nullable: true })
+  client_id: string;
+  @Column({ nullable: false })
+  provider: string;
   @Column({ nullable: true })
   refresh_token: string;
 
@@ -32,6 +36,10 @@ export class User extends BaseEntity {
 
   @OneToMany(() => ResetPassword, (reset) => reset.user)
   reset_password: ResetPassword;
+  @OneToMany(() => Kategori, (Kategori) => Kategori.created_by)
+  kategori_created_by: Kategori[];
+  @OneToMany(() => Kategori, (Kategori) => Kategori.updated_by)
+  kategori_updated_by: Kategori[];
 
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;

@@ -13,6 +13,7 @@ export class MailService {
       context: {
         link: payload.link,
         name: payload.name,
+        feLink : payload.feLink
       },
     });
   }

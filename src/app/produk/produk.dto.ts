@@ -1,6 +1,7 @@
 import { OmitType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
 import {
+  ArrayNotEmpty,
   IsArray,
   IsInt,
   IsNotEmpty,
@@ -47,11 +48,17 @@ export class ProdukDto {
 }
 
 export class CreateProdukDto extends OmitType(ProdukDto, ['id']) {}
+export class UpdateProdukDto extends OmitType(ProdukDto, ['id']) {}
 export class CreateProdukArrayDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateProdukDto)
   data: CreateProdukDto[];
+}
+export class DeleteProdukArrayDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  data: number[];
 }
 export class findAllProduk extends PageRequestDto {
   @IsString()
@@ -75,4 +82,8 @@ export class findAllProduk extends PageRequestDto {
   @IsString()
   @IsOptional()
   keyword: string;
+  @IsString()
+  @IsOptional()
+  nama_kategori: string;
+
 }

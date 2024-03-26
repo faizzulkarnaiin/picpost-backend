@@ -18,37 +18,40 @@ import {
   findAllKategori,
 } from './kategori.dto';
 import { ResponsePagination, ResponseSuccess } from 'src/interface';
+import { User } from '../auth/auth.entity';
 
 @Injectable()
 export class KategoriService extends BaseResponse {
   constructor(
     @InjectRepository(Kategori)
     private readonly kategoriRepository: Repository<Kategori>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     @Inject(REQUEST) private req: any,
   ) {
     super();
   }
   async create(payload: CreateKategoriDto): Promise<ResponseSuccess> {
     try {
-      await this.kategoriRepository.save({
-        ...payload,
-        created_by: {
-          id: this.req.user.id,
-        },
-      });
+      await this.kategoriRepository.save(payload);
 
-      return this._success('OK', this.req.user.user_id);
+      return this._success('OK', payload);
     } catch {
       throw new HttpException('Ada Kesalahan', HttpStatus.UNPROCESSABLE_ENTITY);
     }
   }
 
   async getAllCategory(query: findAllKategori): Promise<ResponsePagination> {
-    const { page, pageSize, limit, nama_kategori } = query;
-
+    const { page, pageSize, limit, nama_kategori, nama_user } = query;
+    console.log('query', query);
     const filterQuery: any = {};
     if (nama_kategori) {
       filterQuery.nama_kategori = Like(`%${nama_kategori}%`);
+    }
+    if (nama_user) {
+      filterQuery.created_by = {
+        nama: Like(`%${nama_user}%`),
+      };
     }
     const total = await this.kategoriRepository.count({
       where: filterQuery,
@@ -57,7 +60,7 @@ export class KategoriService extends BaseResponse {
       where: filterQuery,
       relations: ['created_by', 'updated_by'], // relasi yang aka ditampilkan saat menampilkan list kategori
       select: {
-        // pilih data mana saja yang akan ditampilkan dari tabel kategori
+        // pilih data mana saja yang akan ditampilkan dari tabel kategoris
         id: true,
         nama_kategori: true,
         created_by: {
@@ -89,7 +92,10 @@ export class KategoriService extends BaseResponse {
     if (kategori === null) {
       throw new NotFoundException(`Kategori dengan id ${id} tidak ditemukan`);
     }
-    const update = await this.kategoriRepository.save({ ...payload, id });
+    const update = await this.kategoriRepository.save({
+      ...payload,
+      id,
+    });
     return this._success('Ok', update);
   }
 
@@ -131,12 +137,7 @@ export class KategoriService extends BaseResponse {
       await Promise.all(
         payload.data.map(async (item) => {
           try {
-            await this.kategoriRepository.save({
-              ...item,
-              created_by: {
-                id: this.req.user.id,
-              },
-            });
+            await this.kategoriRepository.save(item);
             berhasil += 1;
           } catch {
             gagal += 1;
@@ -166,11 +167,28 @@ export class KategoriService extends BaseResponse {
         }),
       );
       return this._success(
-        `Berhasil menghapus buku sebanyak ${berhasil} dan gagal sebanyak ${gagal}`,
+        `Berhasil menghapus Kategori sebanyak ${berhasil} dan gagal sebanyak ${gagal}`,
         payload,
       );
     } catch {
       throw new HttpException('Ada Kesalahan', HttpStatus.BAD_REQUEST);
     }
+  }
+  async getUserCategory(): Promise<ResponseSuccess> {
+    const user = await this.userRepository.findOne({
+      where: {
+        id: this.req.user.id,
+      },
+      relations: ['kategori_created_by', 'kategori_updated_by'],
+      select: {
+        id: true,
+        nama: true,
+        kategori_created_by: {
+          id: true,
+          nama_kategori: true,
+        },
+      },
+    });
+    return this._success('ok', user);
   }
 }

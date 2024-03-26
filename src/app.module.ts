@@ -10,8 +10,18 @@ import { MailModule } from './app/mail/mail.module';
 import { ConfigModule } from '@nestjs/config';
 import { KategoriModule } from './app/kategori/kategori.module';
 import { ProdukModule } from './app/produk/produk.module';
+import { KonsumenModule } from './app/konsumen/konsumen.module';
+import { UniqueValidator } from './app/utils/validator/unique.validator';
+import { OrderModule } from './app/order/order.module';
+import { OrderDetailModule } from './app/order_detail/order_detail.module';
+import { UploadController } from './app/upload/upload.controller';
+import { join } from 'path';
+import { ServeStaticModule } from '@nestjs/serve-static';
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'),
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -21,8 +31,11 @@ import { ProdukModule } from './app/produk/produk.module';
     MailModule,
     KategoriModule,
     ProdukModule,
+    KonsumenModule,
+    OrderModule,
+    OrderDetailModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, UploadController],
+  providers: [AppService, UniqueValidator],
 })
 export class AppModule {}
