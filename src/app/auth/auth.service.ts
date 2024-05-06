@@ -185,7 +185,7 @@ export class AuthService extends BaseResponse {
           '7d',
           jwt_config.refresh_token_secret,
         );
-        // Simpan refresh token ke dalam basis data
+        
         user.refresh_token = refresh_token;
         await this.authRepository.save(user);
       } else {
@@ -196,7 +196,7 @@ export class AuthService extends BaseResponse {
           '7d',
           jwt_config.refresh_token_secret,
         );
-        // Simpan refresh token ke dalam basis data
+        
         user.refresh_token = refresh_token;
         await this.authRepository.save(user);
       }
