@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import BaseResponse from 'src/utils/response/base.response';
 import { Order } from './order.entity';
@@ -7,17 +13,14 @@ import { REQUEST } from '@nestjs/core';
 import { ResponsePagination, ResponseSuccess } from 'src/interface';
 import { CreateOrderDto, UpdateOrderDto, findAllOrderDto } from './order.dto';
 import { Workbook } from 'exceljs';
-
-
-
-
-
+import { OrderDetail } from '../order_detail/order_detail.entity';
 
 @Injectable()
 export class OrderService extends BaseResponse {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    
     @Inject(REQUEST) private req: any,
   ) {
     super();
@@ -29,20 +32,25 @@ export class OrderService extends BaseResponse {
     try {
       const invoice = this.generateInvoice();
       payload.nomor_order = invoice;
+      // payload.total_bayar = this.orderDetailRepository()
+      let total_bayar = 0;
+
       payload.order_detail &&
         payload.order_detail.forEach((item) => {
           item.created_by = this.req.user.id;
+          total_bayar += item.jumlah * item.jumlah_harga;
         });
       await this.orderRepository.save({
         ...payload,
+        total_bayar: total_bayar,
         konsumen: {
           id: payload.konsumen_id,
         },
       });
-      return this._success('Ok')
+      return this._success('Ok');
     } catch (error) {
-        console.log(error);
-        throw new HttpException('Ada Kesalahan', HttpStatus.UNPROCESSABLE_ENTITY);
+      console.log(error);
+      throw new HttpException('Ada Kesalahan', HttpStatus.UNPROCESSABLE_ENTITY);
     }
   }
   async findAll(query: findAllOrderDto): Promise<ResponsePagination> {
@@ -277,14 +285,14 @@ export class OrderService extends BaseResponse {
       merge.forEach((item) => {
         worksheet.mergeCells(item.start, 8, item.finish, 8);
       });
-//       const buffer = await workbook.xlsx.writeBuffer()
+      //       const buffer = await workbook.xlsx.writeBuffer()
 
-// return res.set('Content-Disposition', `attachment; filename=example.xlsx`).send(buffer)
+      // return res.set('Content-Disposition', `attachment; filename=example.xlsx`).send(buffer)
 
-res.setHeader(
-  'Content-Type',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-);
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
 
       // return workbook.xlsx.write()
       return workbook.xlsx.write(res).then(function () {

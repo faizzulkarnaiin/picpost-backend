@@ -4,7 +4,7 @@ import { InjectCreatedBy } from 'src/utils/decorator/createdBy.decorator';
 import { CreateOrderDto, findAllOrderDto } from './order.dto';
 import { Pagination } from 'src/utils/decorator/pagination.decorator';
 import { JwtGuard } from '../auth/auth.guard';
-// @UseGuards(JwtGuard)
+@UseGuards(JwtGuard)
 @Controller('order')
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}

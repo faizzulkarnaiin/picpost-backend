@@ -9,7 +9,7 @@ export class OrderDetailDto {
   @IsNumber()
   jumlah: number;
   @IsNumber()
-  harga: number;
+  jumlah_harga: number;
 
   @IsObject()
   produk: { id: number };

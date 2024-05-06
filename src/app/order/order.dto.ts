@@ -32,9 +32,9 @@ export class OrderDto {
   @IsIn([Status.BAYAR, Status.BELUM])
   status: Status;
 
-  @IsNumber()
-  @IsNotEmpty()
-  total_bayar: number;
+  // @IsNumber()
+  // @IsNotEmpty()
+  // total_bayar: number;
 
   @IsNumber()
   @IsNotEmpty()

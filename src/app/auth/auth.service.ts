@@ -91,10 +91,11 @@ export class AuthService extends BaseResponse {
   }
 
   async login(payload: LoginDto): Promise<ResponseSuccess> {
+    console.log('pay', payload);
     const checkUserExists = await this.authRepository.findOne({
       where: {
         email: payload.email,
-        provider: 'credentials',
+        // provider: 'credentials',
       },
       select: {
         id: true,
@@ -104,7 +105,7 @@ export class AuthService extends BaseResponse {
         refresh_token: true,
       },
     });
-
+console.log('checkuser', checkUserExists);
     if (!checkUserExists) {
       throw new HttpException(
         'User tidak ditemukan',
