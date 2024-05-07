@@ -24,7 +24,7 @@ export class AuthController {
   async googleLogin(@Body() payload: GoogleDto) {
     return this.authService.loginWithGoogle(payload);
   }
-  @UseGuards(JwtGuard) // impelementasi guard pada route , hal ini berarti endpoint profile hanya bisa diakses jika client membawa token
+  @UseGuards(JwtGuard) 
   @Get('profile')
   async profile(@Req() req) {
     // hasil validate dari jwt strategy akan ditambakan pada req.user. isi object req.user akan sama dengan payload dari jwt token. Silahkan coba console.log(req.user)

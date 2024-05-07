@@ -19,6 +19,7 @@ import {
   UpdateUserDto,
   UserDto,
 } from './auth.dto';
+import { githubJwtPayload, googleJwtPayload, jwtPayload } from './auth.interface'
 import { ResponseSuccess } from 'src/interface';
 import { allowedNodeEnvironmentFlags } from 'process';
 import { JwtService } from '@nestjs/jwt';

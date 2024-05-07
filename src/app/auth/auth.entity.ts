@@ -22,7 +22,7 @@ export class User extends BaseEntity {
   @Column({ nullable: false })
   email: string;
 
-  @Column({ nullable: false })
+  @Column({ nullable: true })
   password: string;
   @Column({ nullable: true })
   client_id: string;
