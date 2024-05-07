@@ -163,6 +163,7 @@ console.log('checkuser', checkUserExists);
         },
       });
 
+      // Buat payload JWT
       const githubJwtPayload: githubJwtPayload = {
         id: user ? user.id : null,
         nama: payload.nama,
@@ -230,7 +231,6 @@ console.log('checkuser', checkUserExists);
         client_id: payload.client_id,
       };
 
-      // Buat token akses
       const access_token = await this.generateGoogleJWT(
         googleJwtPayload,
         '1d',
@@ -264,7 +264,6 @@ console.log('checkuser', checkUserExists);
         role: 'siswa',
       });
     } catch (error) {
-      // Tangani kesalahan
       throw new HttpException(
         'Gagal login dengan Google',
         HttpStatus.INTERNAL_SERVER_ERROR,
