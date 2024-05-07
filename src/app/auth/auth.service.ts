@@ -95,7 +95,7 @@ export class AuthService extends BaseResponse {
     const checkUserExists = await this.authRepository.findOne({
       where: {
         email: payload.email,
-        // provider: 'credentials',
+        provider: 'credentials',
       },
       select: {
         id: true,
@@ -163,7 +163,6 @@ console.log('checkuser', checkUserExists);
         },
       });
 
-      // Buat payload JWT
       const githubJwtPayload: githubJwtPayload = {
         id: user ? user.id : null,
         nama: payload.nama,
@@ -171,7 +170,6 @@ console.log('checkuser', checkUserExists);
         client_id: payload.client_id,
       };
 
-      // Buat token akses
       const access_token = await this.generateGithubJWT(
         githubJwtPayload,
         '1d',
@@ -180,7 +178,6 @@ console.log('checkuser', checkUserExists);
 
       let refresh_token;
       if (user) {
-        // Jika pengguna sudah ada, buat refresh token baru
         refresh_token = await this.generateGithubJWT(
           githubJwtPayload,
           '7d',
@@ -190,7 +187,6 @@ console.log('checkuser', checkUserExists);
         user.refresh_token = refresh_token;
         await this.authRepository.save(user);
       } else {
-        // Jika pengguna belum ada, simpan pengguna baru dan buat refresh token baru
         user = await this.authRepository.save(payload);
         refresh_token = await this.generateGithubJWT(
           githubJwtPayload,
@@ -202,7 +198,6 @@ console.log('checkuser', checkUserExists);
         await this.authRepository.save(user);
       }
 
-      // Kembalikan respons sukses dengan token
       return this._success('Login Success', {
         ...payload,
         access_token: access_token,
@@ -210,7 +205,6 @@ console.log('checkuser', checkUserExists);
         role: 'siswa',
       });
     } catch (error) {
-      // Tangani kesalahan
       throw new HttpException(
         'Gagal login dengan github',
         HttpStatus.INTERNAL_SERVER_ERROR,
