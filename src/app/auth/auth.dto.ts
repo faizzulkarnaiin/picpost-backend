@@ -1,5 +1,17 @@
 import { OmitType, PartialType, PickType } from '@nestjs/mapped-types';
-import { IsEmail, IsInt, IsString, Length, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  MinLength,
+} from 'class-validator';
+import { Gender, User } from './auth.entity';
+import { PageRequestDto } from 'src/utils/dto/page.dto';
 
 export class UserDto {
   @IsInt()
@@ -14,6 +26,14 @@ export class UserDto {
 
   @IsString()
   avatar: string;
+  @IsString()
+  bio: string;
+  @IsString()
+  nama_lengkap: string;
+  @IsString()
+  @IsNotEmpty()
+  @IsIn([Gender.FEMALE, Gender.MALE])
+  gender: Gender;
 
   @IsString()
   @IsEmail()
@@ -28,6 +48,8 @@ export class UserDto {
 
   @IsString()
   role: string;
+  @IsBoolean()
+  isBanned: boolean;
 }
 
 export class RegisterDto extends PickType(UserDto, [
@@ -35,6 +57,7 @@ export class RegisterDto extends PickType(UserDto, [
   'email',
   'password',
   'provider',
+  'role',
 ]) {}
 export class LoginDto extends PickType(UserDto, ['email', 'password']) {}
 
@@ -61,4 +84,15 @@ export class UpdateUserDto extends PickType(UserDto, [
   'nama',
   'avatar',
   'id',
+  'bio',
+  'nama_lengkap',
+  'gender',
 ]) {}
+
+export class FindAllUser extends PageRequestDto {
+  @IsString()
+  @IsOptional()
+  keyword: string;
+}
+
+export class BanUserDto extends PickType(UserDto, ['isBanned']) {}

@@ -8,9 +8,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './auth.entity';
-import { MongoNetworkTimeoutError, Repository } from 'typeorm';
+import { Like, MongoNetworkTimeoutError, Repository } from 'typeorm';
 import BaseResponse from 'src/utils/response/base.response';
 import {
+  BanUserDto,
+  FindAllUser,
   GithubDto,
   GoogleDto,
   LoginDto,
@@ -19,8 +21,12 @@ import {
   UpdateUserDto,
   UserDto,
 } from './auth.dto';
-import { githubJwtPayload, googleJwtPayload, jwtPayload } from './auth.interface'
-import { ResponseSuccess } from 'src/interface';
+import {
+  githubJwtPayload,
+  googleJwtPayload,
+  jwtPayload,
+} from './auth.interface';
+import { ResponsePagination, ResponseSuccess } from 'src/interface';
 import { allowedNodeEnvironmentFlags } from 'process';
 import { JwtService } from '@nestjs/jwt';
 import { access } from 'fs';
@@ -31,10 +37,15 @@ import { MailService } from '../mail/mail.service';
 import { ResetPassword } from '../mail/reset_password.entity';
 import { constants } from 'buffer';
 import { REQUEST } from '@nestjs/core';
+import { filter } from 'rxjs';
+import { toASCII } from 'punycode';
+import { Following } from '../following/following.entity';
 @Injectable()
 export class AuthService extends BaseResponse {
   constructor(
     @InjectRepository(User) private readonly authRepository: Repository<User>,
+    @InjectRepository(Following)
+    private readonly followRepository: Repository<Following>,
     @InjectRepository(ResetPassword)
     private readonly resetPasswordRepo: Repository<ResetPassword>,
     private jwtService: JwtService,
@@ -86,7 +97,10 @@ export class AuthService extends BaseResponse {
     }
 
     payload.password = await hash(payload.password, 12); //hash password
-    await this.authRepository.save(payload);
+    await this.authRepository.save({
+      ...payload,
+      role: 'user',
+    });
 
     return this._success('Register Berhasil', checkUserExists);
   }
@@ -104,9 +118,11 @@ export class AuthService extends BaseResponse {
         email: true,
         password: true,
         refresh_token: true,
+        role: true,
+        isBanned : true
       },
     });
-console.log('checkuser', checkUserExists);
+    console.log('checkuser', checkUserExists);
     if (!checkUserExists) {
       throw new HttpException(
         'User tidak ditemukan',
@@ -144,7 +160,7 @@ console.log('checkuser', checkUserExists);
         ...checkUserExists,
         access_token: access_token,
         refresh_token: refresh_token,
-        role: 'admin',
+        // role: 'admin',
       });
     } else {
       throw new HttpException(
@@ -185,7 +201,7 @@ console.log('checkuser', checkUserExists);
           '7d',
           jwt_config.refresh_token_secret,
         );
-        
+
         user.refresh_token = refresh_token;
         await this.authRepository.save(user);
       } else {
@@ -195,7 +211,7 @@ console.log('checkuser', checkUserExists);
           '7d',
           jwt_config.refresh_token_secret,
         );
-        
+
         user.refresh_token = refresh_token;
         await this.authRepository.save(user);
       }
@@ -281,7 +297,10 @@ console.log('checkuser', checkUserExists);
 
     return this._success('OK', user);
   }
-  async updateProfile(id: number, payload: UpdateUserDto): Promise<ResponseSuccess> {
+  async updateProfile(
+    id: number,
+    payload: UpdateUserDto,
+  ): Promise<ResponseSuccess> {
     const user = await this.authRepository.findOne({
       where: {
         id: id,
@@ -365,8 +384,8 @@ console.log('checkuser', checkUserExists);
       );
     }
     const token = randomBytes(32).toString('hex'); // membuat token
-    const link = `http://localhost:3310/auth/reset-password/${user.id}/${token}`; //membuat link untuk reset password
-    const feLink = `http://localhost:3010/auth/${user.id}/${token}/reset-password`;
+    const link = `http://localhost:3000/auth/reset-password/${user.id}/${token}`; //membuat link untuk reset password
+    const feLink = `http://localhost:3000/auth/${user.id}/${token}/reset-password`;
     await this.mailService.sendForgotPassword({
       email: email,
       name: user.nama,
@@ -421,5 +440,87 @@ console.log('checkuser', checkUserExists);
     });
 
     return this._success('Reset Passwod Berhasil, Silahkan login ulang');
+  }
+
+  async getAllUser(query: FindAllUser): Promise<ResponsePagination> {
+    const { keyword, page, pageSize, limit } = query;
+    const filterQuery: any = { role: 'user' };
+    if (keyword) {
+      filterQuery.nama = Like(`%${keyword}%`);
+    }
+    const total = await this.authRepository.count({
+      where: filterQuery,
+    });
+    const result = await this.authRepository.find({
+      where: filterQuery,
+      skip: limit,
+      take: pageSize,
+    });
+    return this._pagination('OK', result, total, page, pageSize);
+  }
+  async getUserProfile(id: number): Promise<ResponseSuccess> {
+    const user: any = await this.authRepository.findOne({
+      relations: ['following', 'followers'],
+      where: {
+        id: id,
+      },
+    });
+    const isFollowed = await this.followRepository.findOne({
+      where: {
+        follower: {
+          id: this.req.user.id,
+        },
+        followed: {
+          id: id,
+        },
+      },
+    });
+    user.isFollowed = !!isFollowed;
+    user.followingId = isFollowed ? isFollowed.id : null;
+    return this._success('OK', user);
+  }
+  async banUser(id: number, payload: BanUserDto): Promise<ResponseSuccess> {
+    const user = await this.authRepository.find({
+      where: {
+        id: id,
+      },
+    });
+    if (user == null) {
+      throw new NotFoundException(`user dengan id ${id} tidak dapat ditemukan`);
+    }
+    const banUser = await this.authRepository.save({
+      ...payload,
+      id,
+      isBanned: true,
+    });
+    return this._success('OK', banUser);
+  }
+  async unBanUser(id: number, payload: BanUserDto): Promise<ResponseSuccess> {
+    const post = await this.authRepository.find({
+      where: {
+        id: id,
+      },
+    });
+    if (post == null) {
+      throw new NotFoundException(`Post dengan id ${id} tidak dapat ditemukan`);
+    }
+    const banPost = await this.authRepository.save({
+      ...payload,
+      id,
+      isBanned: false,
+    });
+    return this._success('OK', banPost);
+  }
+  async deleteUser(id: number): Promise<ResponseSuccess> {
+    const user = await this.authRepository.findOne({
+      where: {
+        id,
+      },
+    });
+    if (user === null) {
+      throw new NotFoundException(`user dengan id ${id} tidak ditemukan`);
+    }
+    const deleteUser = await this.authRepository.delete(id);
+    return this._success(`berhasil menghapus user dengan id ${id}`, user);
   }
 }

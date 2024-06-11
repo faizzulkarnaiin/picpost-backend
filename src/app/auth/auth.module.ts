@@ -10,9 +10,10 @@ import { ResetPassword } from '../mail/reset_password.entity';
 import { MailModule } from '../mail/mail.module';
 import { PassportModule } from '@nestjs/passport';
 import { jwt_config } from 'src/config/jwt.congif';
+import { Following } from '../following/following.entity';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, ResetPassword]),
+    TypeOrmModule.forFeature([User, ResetPassword, Following]),
     JwtModule.register({
       
     }),

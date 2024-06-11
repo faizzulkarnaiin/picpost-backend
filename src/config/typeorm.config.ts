@@ -5,7 +5,7 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
   port: 3307, 
   username: 'root', 
   password: '', 
-  database: 'nestjs_project_backup',
+  database: 'database_project_kls2_sms2',
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   synchronize: true,
   logging: true,
