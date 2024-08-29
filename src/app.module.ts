@@ -30,8 +30,14 @@ import { ReportModule } from './app/report/report.module';
     }),
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
     }),
-    TypeOrmModule.forRoot(typeOrmConfig),
+    TypeOrmModule.forRootAsync({
+      useFactory: async () => {
+        const { typeOrmConfig } = await import('./config/typeorm.config');
+        return typeOrmConfig;
+      },
+    }),
     AuthModule,
     MailModule,
     PostModule,
