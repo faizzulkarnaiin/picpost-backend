@@ -18,8 +18,8 @@ import { Tag } from '../tag/tag.entity';
 
 @Entity()
 export class Post extends BaseEntity {
-  @PrimaryGeneratedColumn()
-  id: number;
+    @PrimaryGeneratedColumn()
+    id: number;
   @Column()
   judul: string;
   @Column()
