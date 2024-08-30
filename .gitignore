@@ -9,6 +9,9 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+# Ignore SSL certificate file
+ca.pem
+
 
 # OS
 .DS_Store
