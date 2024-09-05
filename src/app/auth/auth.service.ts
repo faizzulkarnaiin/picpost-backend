@@ -129,33 +129,41 @@ export class AuthService extends BaseResponse {
         HttpStatus.UNPROCESSABLE_ENTITY,
       );
     }
+    console.log(true, 'ddadadad')
 
     const checkPassword = await compare(
       payload.password,
       checkUserExists.password,
     );
-
+console.log(true, 'dad')
     if (checkPassword) {
       const jwtPayload: jwtPayload = {
         id: checkUserExists.id,
         nama: checkUserExists.nama,
         email: checkUserExists.email,
       };
+      console.log(true, 'dad333')
 
       const access_token = await this.generateJWT(
         jwtPayload,
         '1d',
-        jwt_config.access_token_secret,
+        process.env.JWT_ACCESS_SECRET,
       );
+      console.log(true, 'd2313ad333')
+
       const refresh_token = await this.generateJWT(
         jwtPayload,
         '7d',
-        jwt_config.refresh_token_secret,
+        process.env.JWT_REFRESH_SECRET,
       );
+      console.log(true, 'da3131d333')
+
       await this.authRepository.save({
         refresh_token: refresh_token,
         id: checkUserExists.id,
       });
+      console.log(true, 'da33331d333')
+
       return this._success('Login Success', {
         ...checkUserExists,
         access_token: access_token,
