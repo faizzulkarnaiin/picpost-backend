@@ -1,119 +1,70 @@
-import {
-  Controller,
-  Delete,
-  HttpException,
-  HttpStatus,
-  Param,
-  Post,
-  UploadedFile,
-  UploadedFiles,
-  UseGuards,
-  UseInterceptors,
-  ParseFilePipeBuilder
-} from '@nestjs/common';
-import * as fs from 'fs';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import BaseResponse from 'src/utils/response/base.response';
-import { JwtGuard } from '../auth/auth.guard';
-import { ResponseSuccess } from 'src/interface';
-const MAX_PROFILE_PICTURE_SIZE_IN_BYTES = 2097152;
+import { Controller, Post, UploadedFile, UseInterceptors, HttpException, HttpStatus, Param, Delete } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import { v2 as cloudinary } from 'cloudinary';
+import * as path from 'path';
+import * as multer from 'multer';
 
-@UseGuards(JwtGuard)
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // Max 5MB
+
+// Konfigurasi Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+function uploadMiddleware(folderName: string) {
+  const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: (req, file) => {
+      const folderPath = folderName.trim();
+      const fileExtension = path.extname(file.originalname).substring(1);
+      const publicId = `${file.fieldname}-${Date.now()}`;
+      
+      return {
+        folder: folderPath, 
+        public_id: publicId,
+        format: fileExtension,
+      };
+    },
+  });
+
+  return multer({
+    storage: storage,
+    limits: {
+      fileSize: MAX_FILE_SIZE, 
+    },
+  });
+}
+
 @Controller('upload')
-export class UploadController extends BaseResponse {
-  constructor() {
-    super();
-  }
+export class UploadController {
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: 'public/uploads',
-        filename: (req, file, cb) => {
-          const fileExtension = file.originalname.split('.').pop();
-          cb(null, `${new Date().getTime()}.${fileExtension}`);
-        },
-      }),
+      storage: uploadMiddleware('my_folder'),
     }),
   )
   @Post('file')
-  async uploadFile(@UploadedFile(
-    new ParseFilePipeBuilder().addFileTypeValidator({
-      fileType: /(jpg|jpeg|png|pdf)$/ ,
-    })
-    .addMaxSizeValidator({maxSize : MAX_PROFILE_PICTURE_SIZE_IN_BYTES}).build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
-  ) file: Express.Multer.File ): Promise<ResponseSuccess> {
-    try {
-      console.log('file', file);
-      const url = `http://localhost:3310/uploads/${file.filename}`;
-      return this._success('OK', {
-        file_url: url,
-        file_name: file.filename,
-        file_size: file.size,
-      });
-    } catch (err) {
-      throw new HttpException('Ada Kesalahan', HttpStatus.BAD_REQUEST);
+  async uploadFile(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new HttpException('File not provided', HttpStatus.BAD_REQUEST);
     }
-  }
-  @UseInterceptors(
-    FilesInterceptor('files', 20, {
-      storage: diskStorage({
-        destination: 'public/uploads',
-        filename: (req, file, cb) => {
-          const fileExtension = file.originalname.split('.').pop();
-          cb(null, `${new Date().getTime()}.${fileExtension}`);
-        },
-      }),
-    }),
-  )
-  @Post('files')
-  async uploadFileMulti(
-    @UploadedFiles(
-      new ParseFilePipeBuilder()
-      .addFileTypeValidator({
-        fileType: /(jpg|jpeg|png|pdf)$/,
-      })
-      .addMaxSizeValidator({ maxSize: MAX_PROFILE_PICTURE_SIZE_IN_BYTES })
-      .build({
-        errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-      }),
-    ) files: Express.Multer.File[],
-  ): Promise<ResponseSuccess> {
-    try {
-      const file_response: Array<{
-        file_url: string;
-        file_name: string;
-        file_size: number;
-      }> = [];
 
-      files.forEach((file) => {
-        const url = `http://localhost:3310/uploads/${file.filename}`;
-        file_response.push({
-          file_url: url,
-          file_name: file.filename,
-          file_size: file.size,
-        });
-      });
-
-      return this._success('OK', {
-        file: file_response,
-      });
-    } catch (err) {
-      throw new HttpException('Ada Kesalahan', HttpStatus.BAD_REQUEST);
-    }
+    return {
+      message: 'File uploaded successfully',
+      file_url: file.path, 
+      file_name: file.filename,
+    };
   }
+
   @Delete('file/delete/:filename')
-  async DeleteFile(
-    @Param('filename') filename: string,
-  ): Promise<ResponseSuccess> {
+  async deleteFile(@Param('filename') filename: string) {
     try {
-      const filePath = `public/uploads/${filename}`;
-      fs.unlinkSync(filePath);
-      return this._success('Berhasil menghapus File', filename);
-    } catch (err) {
-      throw new HttpException('File not Found', HttpStatus.NOT_FOUND);
+      await cloudinary.uploader.destroy(filename);
+      return { message: 'File deleted successfully' };
+    } catch (error) {
+      throw new HttpException('File deletion failed', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
-
- 
 }
