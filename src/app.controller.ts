@@ -12,6 +12,7 @@ export class AppController {
 
   @Get('list')
   belajarRouting(){
+    console.log('Request received at '); 
     return "Belajar routing"
   }
 
